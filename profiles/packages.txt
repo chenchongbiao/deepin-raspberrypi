@@ -5,6 +5,7 @@ apt
 adduser
 polkitd
 systemd
+network-manager
 dbus-daemon
 apt-utils
 bash-completion
