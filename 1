@@ -1,0 +1,17 @@
+qemu-system-aarch64 -nographic -machine type=raspi3b \
+	-m 1G  -dtb ~/code/raspberrypi/linux/arch/arm64/boot/dts/broadcom/bcm2710-rpi-3-b.dtb \
+	-kernel ~/code/raspberrypi/linux/arch/arm64/boot/Image \
+	-drive id=hd-root,format=raw,file=deepin-raspberrypi.img \
+	-append "rw earlycon=pl011,0x3f201000 console=ttyAMA0 loglevel=8 root=/dev/mmcblk0p2 fsck.repair=yes net.ifnames=0 rootwait memtest=1 dwc_otg.fiq_fsm_enable=0" \
+	-serial mon:stdio \
+	-netdev user,id=net0,net=10.0.2.0/24,hostfwd=tcp::8022-:22 \
+	-usb -device usb-kbd -device usb-tablet -device usb-net,netdev=net0
+
+qemu-system-aarch64 -nographic -machine type=raspi3b \
+	-m 1G  -dtb ~/code/raspberrypi/linux/arch/arm64/boot/dts/broadcom/bcm2710-rpi-3-b.dtb \
+	-kernel ~/code/raspberrypi/linux/arch/arm64/boot/Image \
+	-drive id=hd-root,format=raw,file=raspbian.img \
+	-append "'rw earlycon=pl011,0x3f201000 console=ttyAMA0 loglevel=8 root=/dev/mmcblk0p2 fsck.repair=yes net.ifnames=0 rootwait memtest=1 dwc_otg.fiq_fsm_enable=0" \
+	-serial mon:stdio \
+	-netdev user,id=net0,net=10.0.2.0/24,hostfwd=tcp::8022-:22 \
+	-usb -device usb-kbd -device usb-tablet -device usb-net,netdev=net0
