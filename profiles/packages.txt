@@ -5,6 +5,7 @@ apt
 adduser
 polkitd
 systemd
+network-manager
 dbus-daemon
 apt-utils
 bash-completion
@@ -20,3 +21,6 @@ lshw
 iproute2
 iptables
 procps
+wpasupplicant
+dmidecode
+ntpsec-ntpdate
