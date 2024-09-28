@@ -3,11 +3,12 @@
 set -x
 # 不进行交互安装
 export DEBIAN_FRONTEND=noninteractive
+BUILD_TYPE="$1"
 ROOTFS=`mktemp -d`
 TARGET_DEVICE=raspberrypi
 ARCH="arm64"
 DISKIMG="deepin-$TARGET_DEVICE.img"
-IMAGE_SIZE=2048
+IMAGE_SIZE=12288
 COMPONENTS="main,commercial community"
 readarray -t REPOS < ./profiles/sources.list
 PACKAGES=`cat ./profiles/packages.txt | grep -v "^-" | xargs | sed -e 's/ /,/g'`
@@ -21,7 +22,6 @@ mkdir -p $ROOTFS
 # 创建根文件系统
 sudo mmdebstrap \
     --hook-dir=/usr/share/mmdebstrap/hooks/merged-usr \
-    --skip=check/empty \
     --include=$PACKAGES \
     --components="main,commercial,community" \
     --architectures=${ARCH} \
@@ -81,10 +81,58 @@ sudo mount -t sysfs chsys $TMP/sys
 sudo mount -t tmpfs -o "size=99%" tmpfs $TMP/tmp
 sudo mount -t tmpfs -o "size=99%" tmpfs $TMP/var/tmp
 
+function run_command_in_chroot()
+{
+    rootfs="$1"
+    command="$2"
+    sudo chroot "$rootfs" /usr/bin/env bash -e -o pipefail -c "$command"
+}
+
 # 安装树莓派的 raspi-config
-sudo chroot $TMP /usr/bin/env bash -e -o pipefail -c "curl http://archive.raspberrypi.org/debian/pool/main/r/raspi-config/raspi-config_20240313_all.deb -o /tmp/raspi-config.deb"
-sudo chroot $TMP /usr/bin/env bash -e -o pipefail -c "apt update -y && apt install -y /tmp/raspi-config.deb"
-sudo chroot $TMP /usr/bin/env bash -e -o pipefail -c "rm /tmp/raspi-config.deb"
+echo "deb http://archive.raspberrypi.org/debian/ bookworm main" > $TMP/etc/apt/sources.list.d/raspberrypi.list
+run_command_in_chroot "$TMP" "export DEBIAN_FRONTEND=noninteractive && \
+    apt update -y && apt install -y \
+    raspi-config"
+
+# 进入根文件系统，生成 systemd 服务文件
+sudo tee $TMP/etc/systemd/system/raspi-config.service << EOF
+[Unit]
+Description=Run raspi-config at boot
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/raspi-config
+StandardOutput=tty
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 启用 raspi-config 服务
+run_command_in_chroot $TMP "systemctl enable raspi-config.service"
+
+if [[ "$BUILD_TYPE" == "desktop" ]];
+then
+    run_command_in_chroot $TMP "export DEBIAN_FRONTEND=noninteractive &&  apt update -y && apt install -y \
+        deepin-desktop-environment-core \
+        deepin-desktop-environment-base \
+        deepin-desktop-environment-cli \
+        deepin-desktop-environment-extras \
+        firefox \
+        deepin-installer \
+        deepin-installer-timezones"
+    
+    # 设置安装器
+    sudo install -D ./profiles/deepin-installer.conf $TMP/etc/deepin-installer/deepin-installer.conf
+    echo -n 'apt_source_deb="' | sudo tee -a $TMP/etc/deepin-installer/deepin-installer.conf
+    echo "deb https://community-packages.deepin.com/beige/ beige main commercial community" | sudo tee -a $TMP/etc/deepin-installer/deepin-installer.conf
+    sudo ln -s ../deepin-installer-first-boot.service $TMP/usr/lib/systemd/system/multi-user.target.wants/deepin-installer-first-boot.service
+    sudo rm $TMP/usr/lib/systemd/system/deepin-installer.service
+
+fi
+
+rm $TMP/etc/apt/sources.list.d/raspberrypi.list
 
 sudo umount -l $TMP
 sudo losetup -D $LOOP
