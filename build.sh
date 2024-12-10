@@ -98,8 +98,12 @@ sudo cp /etc/resolv.conf $TMP/etc/resolv.conf
 # 安装树莓派的 raspi-config
 mkdir -p $TMP/etc/apt/sources.list.d
 echo "deb [trusted=yes] http://archive.raspberrypi.org/debian/ bookworm main" | sudo tee $TMP/etc/apt/sources.list.d/raspberrypi.list
+
+# deepin 源里没 libfmt9，已经到 libfmt10 了，从 debian 下载 deb 包
+curl -L http://ftp.cn.debian.org/debian/pool/main/f/fmtlib/libfmt9_9.1.0+ds1-2_arm64.deb -o $TMP/tmp/libfmt9.deb
+curl -L http://ftp.cn.debian.org/debian/pool/main/d/device-tree-compiler/libfdt1_1.6.1-4+b1_arm64.deb -o $TMP/tmp/libfdt1.deb
 run_command_in_chroot "$TMP" "export DEBIAN_FRONTEND=noninteractive && \
-    apt update -y && apt install -y raspi-config"
+    apt update -y && apt install -y raspi-config /tmp/libfmt9.deb /tmp/libfdt1.deb"
 
 sudo rm $TMP/etc/apt/sources.list.d/raspberrypi.list
 
